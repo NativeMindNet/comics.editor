@@ -26,7 +26,7 @@
 - [x] Recursive traversal in progress
 - [x] All nodes synthesized
 - [x] Flows updated (5 flows with Legacy Additions)
-- [ ] ADRs created (9 candidates identified)
+- [x] ADRs created (9 ADRs in DRAFT status)
 - [x] Review list complete
 
 ## Statistics
@@ -35,7 +35,7 @@
 - **Nodes completed**: 6
 - **Max depth reached**: 2
 - **Flows updated**: 5
-- **ADRs created**: 0 (9 candidates identified)
+- **ADRs created**: 9 (all DRAFT)
 - **Pending review**: 0
 
 ## Flows Updated
