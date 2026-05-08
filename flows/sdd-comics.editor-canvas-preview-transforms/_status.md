@@ -1,8 +1,8 @@
-# Status: sdd-unity-canvas-preview-transforms
+# Status: sdd-comics.editor-canvas-preview-transforms
 
 ## Current Phase
 
-REQUIREMENTS
+PLAN
 
 ## Phase Status
 
@@ -14,15 +14,14 @@ DRAFTING
 
 ## Blockers
 
-- Depends on `sdd-comics.engine-shared-core` for FolderSource/AnimationProcessor
-- Transform composition order clarified in ADR-006
+- None (sdd-comics.engine-shared-core completed)
 
 ## Progress
 
-- [ ] Requirements drafted
-- [ ] Requirements approved
-- [ ] Specifications drafted
-- [ ] Specifications approved
+- [x] Requirements drafted
+- [x] Requirements approved
+- [x] Specifications drafted
+- [x] Specifications approved
 - [ ] Plan drafted
 - [ ] Plan approved
 - [ ] Implementation started

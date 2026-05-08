@@ -84,5 +84,5 @@ The editor's inline preview (`sdd-comics.editor-canvas-preview-transforms`) is o
 
 ## Approval
 
-- [ ] Reviewed by: [name]
-- [ ] Approved on: [date]
+- [x] Reviewed by: Anton
+- [x] Approved on: 2026-05-08

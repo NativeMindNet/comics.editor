@@ -247,5 +247,5 @@ public class EditorSoundManager : ISoundManager
 
 ## Approval
 
-- [ ] Reviewed by: [name]
-- [ ] Approved on: [date]
+- [x] Reviewed by: Anton
+- [x] Approved on: 2026-05-08

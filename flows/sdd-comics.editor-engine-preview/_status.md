@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-SPECIFICATIONS
+PLAN
 
 ## Phase Status
 
@@ -10,17 +10,18 @@ DRAFTING
 
 ## Last Updated
 
-2026-05-08 by Claude
+2026-05-08
 
 ## Blockers
 
-- Depends on `sdd-comics.engine-shared-core` for FolderSource
+- None (sdd-comics.engine-shared-core completed)
 
 ## Progress
 
 - [x] Requirements drafted
+- [x] Requirements approved
 - [x] Specifications drafted
-- [ ] Specifications approved
+- [x] Specifications approved
 - [ ] Plan drafted
 - [ ] Plan approved
 - [ ] Implementation started

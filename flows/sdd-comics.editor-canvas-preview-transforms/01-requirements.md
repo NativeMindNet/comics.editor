@@ -63,5 +63,5 @@ The Unity editor currently shows **per-layer previews** without applying **rotat
 
 ## Approval
 
-- [ ] Reviewed by: [name]
-- [ ] Approved on: [date]
+- [x] Reviewed by: Anton
+- [x] Approved on: 2026-05-08
