@@ -6,8 +6,8 @@
 
 ## Prerequisites
 
-- [ ] `sdd-comics.engine-shared-core` implemented (FolderSource)
-- [ ] `sdd-comics.editor-audio-preview` at least partially implemented
+- [x] `sdd-comics.engine-shared-core` implemented (FolderSource)
+- [ ] `sdd-comics.editor-audio-preview` at least partially implemented (can defer audio)
 
 ## Phase 1: Basic Preview Window
 
@@ -85,5 +85,5 @@
 
 ## Approval
 
-- [ ] Plan reviewed by: [name]
-- [ ] Plan approved on: [date]
+- [x] Plan reviewed by: Anton
+- [x] Plan approved on: 2026-05-08

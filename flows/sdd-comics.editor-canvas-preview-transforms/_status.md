@@ -2,11 +2,11 @@
 
 ## Current Phase
 
-PLAN
+IMPLEMENTATION
 
 ## Phase Status
 
-DRAFTING
+COMPLETE
 
 ## Last Updated
 
@@ -14,7 +14,7 @@ DRAFTING
 
 ## Blockers
 
-- None (sdd-comics.engine-shared-core completed)
+- None
 
 ## Progress
 
@@ -22,17 +22,36 @@ DRAFTING
 - [x] Requirements approved
 - [x] Specifications drafted
 - [x] Specifications approved
-- [ ] Plan drafted
-- [ ] Plan approved
-- [ ] Implementation started
-- [ ] Implementation complete
+- [x] Plan drafted
+- [x] Plan approved
+- [x] Implementation started
+- [x] Implementation complete
 
 ## Context Notes
 
 - WPF: `LayersControl.xaml` composes translate/rotate/scale/alpha on a canvas.
-- Unity v1: vertical list of textures + scroll numbers; not a single composed stage.
+- Unity: `ComicsStagePreview` renders composed layers with transforms in IMGUI.
+- Integrated into `ComicsEditorWindow` with Composed/Stacked toggle.
 
-## Next Actions
+## Implementation Summary
 
-1. Capture transform composition order and pivot normalization from WPF.
-2. Define hit-testing scope (phase 2) if selection handles are in-scope.
+### Files Created/Modified
+
+1. `Editor/Preview/ComicsStagePreview.cs` - IMGUI composed preview renderer
+   - Uses `AnimationProcessor` from comics.engine for accurate transforms
+   - Handles rotation via `GUIUtility.RotateAroundPivot`
+   - Texture caching by layer/culture
+
+2. `Editor/ComicsEditorWindow.cs` - Integration
+   - Added `PreviewMode` enum (Stacked, Composed)
+   - Added toggle UI between modes
+   - `DrawComposedPreview()` uses `ComicsStagePreview`
+   - `DrawStackedPreview()` preserves original behavior
+
+### Key Features
+
+- Transform composition: Scale → Rotate → Translate (matches engine order)
+- Alpha blending per layer
+- Pivot-based rotation
+- Real-time scroll preview
+- Culture-aware localized images

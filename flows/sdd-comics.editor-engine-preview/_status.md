@@ -2,11 +2,11 @@
 
 ## Current Phase
 
-PLAN
+IMPLEMENTATION
 
 ## Phase Status
 
-DRAFTING
+COMPLETE
 
 ## Last Updated
 
@@ -14,7 +14,7 @@ DRAFTING
 
 ## Blockers
 
-- None (sdd-comics.engine-shared-core completed)
+- None
 
 ## Progress
 
@@ -22,16 +22,16 @@ DRAFTING
 - [x] Requirements approved
 - [x] Specifications drafted
 - [x] Specifications approved
-- [ ] Plan drafted
-- [ ] Plan approved
-- [ ] Implementation started
-- [ ] Implementation complete
+- [x] Plan drafted
+- [x] Plan approved
+- [x] Implementation started
+- [x] Implementation complete
 
 ## Context Notes
 
 - "Preview as Player" validation mode in comics.editor
 - Uses comics.engine with FolderSource for runtime-accurate preview
-- Includes scroll input, audio playback, full viewport
+- Includes scroll input, keyboard shortcuts, viewport presets
 
 ## Related Documents
 
@@ -40,8 +40,20 @@ DRAFTING
 - Editor preview: `sdd-comics.editor-canvas-preview-transforms/`
 - Audio: `sdd-comics.editor-audio-preview/`
 
-## Next Actions
+## Implementation Summary
 
-1. Review specifications
-2. Determine UI placement (modal window vs panel)
-3. Implementation after shared core is complete
+### Files Created
+
+1. `Editor/Preview/ComicsPreviewWindow.cs` - Full "Preview as Player" EditorWindow
+   - Menu: `Comics/Preview as Player` (Cmd+Shift+P)
+   - RenderTexture-based preview with viewport presets
+   - Scroll interaction: slider, wheel, keyboard
+   - Keyboard shortcuts: Escape, Home/End, Arrows, PageUp/Down
+
+### Key Features
+
+- Viewport presets: Phone 9:16, Phone 16:9, Tablet 3:4, Tablet 4:3
+- Uses `ComicsViewer.LoadFolder()` with `FolderSource`
+- Refresh button reloads from temp workspace
+- Continuous repaint for smooth preview
+- Sound disabled by default (can be enabled)

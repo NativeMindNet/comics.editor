@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using ComicsUnity.Models;
+using ComicsUnity.Preview;
 
 namespace ComicsUnity
 {
@@ -12,6 +13,11 @@ namespace ComicsUnity
 		Vector2 _previewScroll;
 		readonly Dictionary<int, Texture2D> _previewCache = new Dictionary<int, Texture2D>();
 
+		// Composed preview mode
+		enum PreviewMode { Stacked, Composed }
+		PreviewMode _previewMode = PreviewMode.Composed;
+		ComicsStagePreview _stagePreview;
+
 		[MenuItem("Window/Comics/Comics Editor")]
 		public static void ShowWindow()
 		{
@@ -20,7 +26,12 @@ namespace ComicsUnity
 			w.minSize = new Vector2(800, 500);
 		}
 
-		void OnDisable() => ClearPreviewCache();
+		void OnDisable()
+		{
+			ClearPreviewCache();
+			_stagePreview?.Dispose();
+			_stagePreview = null;
+		}
 
 		void ClearPreviewCache()
 		{
@@ -33,6 +44,20 @@ namespace ComicsUnity
 		void InvalidatePreviews()
 		{
 			ClearPreviewCache();
+			_stagePreview?.Refresh();
+		}
+
+		void EnsureStagePreview()
+		{
+			if (_stagePreview == null)
+			{
+				_stagePreview = new ComicsStagePreview();
+			}
+
+			if (!System.IO.Directory.Exists(FileManagerUnity.TempFolder))
+				return;
+
+			_stagePreview.Initialize(FileManagerUnity.TempFolder);
 		}
 
 		void OnGUI()
@@ -170,7 +195,73 @@ namespace ComicsUnity
 
 		void DrawPreviewPanel()
 		{
-			EditorGUILayout.LabelField("Preview (ordered back → front)", EditorStyles.boldLabel);
+			// Preview mode toggle
+			EditorGUILayout.BeginHorizontal();
+			EditorGUILayout.LabelField("Preview", EditorStyles.boldLabel, GUILayout.Width(60));
+			if (GUILayout.Toggle(_previewMode == PreviewMode.Composed, "Composed", EditorStyles.miniButtonLeft, GUILayout.Width(70)))
+				_previewMode = PreviewMode.Composed;
+			if (GUILayout.Toggle(_previewMode == PreviewMode.Stacked, "Stacked", EditorStyles.miniButtonRight, GUILayout.Width(70)))
+				_previewMode = PreviewMode.Stacked;
+			GUILayout.FlexibleSpace();
+			EditorGUILayout.EndHorizontal();
+
+			EditorGUILayout.Space(4);
+
+			if (_previewMode == PreviewMode.Composed)
+			{
+				DrawComposedPreview();
+			}
+			else
+			{
+				DrawStackedPreview();
+			}
+		}
+
+		void DrawComposedPreview()
+		{
+			EnsureStagePreview();
+
+			if (_session.Document.Layers.Count == 0)
+			{
+				EditorGUILayout.HelpBox("Add a layer or open a .comics / .puzzle document.", MessageType.Info);
+				return;
+			}
+
+			// Calculate preview rect maintaining document aspect ratio
+			float docW = _session.Document.Width;
+			float docH = _session.Document.Height;
+			if (docW <= 0 || docH <= 0)
+			{
+				EditorGUILayout.HelpBox("Invalid document dimensions.", MessageType.Warning);
+				return;
+			}
+
+			float maxW = Mathf.Min(600f, position.width - 320);
+			float maxH = position.height - 100;
+			float aspect = docW / docH;
+
+			float previewW, previewH;
+			if (maxW / maxH > aspect)
+			{
+				previewH = maxH;
+				previewW = previewH * aspect;
+			}
+			else
+			{
+				previewW = maxW;
+				previewH = previewW / aspect;
+			}
+
+			var rect = GUILayoutUtility.GetRect(previewW, previewH);
+			_stagePreview?.Draw(rect, (float)_session.Scroll, _session.Culture);
+
+			// Show current scroll info
+			EditorGUILayout.LabelField($"Scroll: {_session.Scroll:F0} | Document: {docW}×{docH}", EditorStyles.miniLabel);
+		}
+
+		void DrawStackedPreview()
+		{
+			EditorGUILayout.LabelField("Layers (back → front)", EditorStyles.miniLabel);
 			for (var i = 0; i < _session.Document.Layers.Count; i++)
 			{
 				var layer = _session.Document.Layers[i];
