@@ -51,10 +51,13 @@ Animation authoring in Unity is **far behind** WPF: users cannot add/remove all 
 
 - Must integrate with future undo/redo (`sdd-unity-undo-redo`) — commands should be structured.
 
-## Open Questions
+## Design Decisions
 
-- [ ] Single “timeline” control shared by layer + sound, or two synced rails?
-- [ ] Should changing `SelectedAnim` auto-seek `Scroll` like WPF `LayerViewModel.SelectedAnim`?
+1. **Two synced rails** - Layer animations and sound animations displayed as separate but scroll-synced rails in the timeline.
+
+2. **Auto-seek ON with toggle** - Selecting an animation segment auto-seeks scroll to segment start. Toggle "Sync scroll to selection" allows disabling when comparing across scroll positions.
+
+3. **IMGUI implementation** - Consistent with existing `ComicsEditorWindow`, faster to implement, bounded complexity. Can migrate to UIToolkit later if needed.
 
 ## References
 
@@ -66,5 +69,5 @@ Animation authoring in Unity is **far behind** WPF: users cannot add/remove all 
 
 ## Approval
 
-- [ ] Reviewed by: [name]
-- [ ] Approved on: [date]
+- [x] Reviewed by: Anton
+- [x] Approved on: 2026-05-08

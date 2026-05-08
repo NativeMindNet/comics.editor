@@ -3,6 +3,8 @@ using UnityEditor;
 using UnityEngine;
 using ComicsUnity.Models;
 using ComicsUnity.Preview;
+using ComicsUnity.Inspector;
+using ComicsUnity.Timeline;
 
 namespace ComicsUnity
 {
@@ -18,12 +20,17 @@ namespace ComicsUnity
 		PreviewMode _previewMode = PreviewMode.Composed;
 		ComicsStagePreview _stagePreview;
 
+		// Timeline and Inspector
+		AnimationTimeline _timeline = new AnimationTimeline();
+		AnimationInspector _animInspector = new AnimationInspector();
+		LayerInspector _layerInspector = new LayerInspector();
+
 		[MenuItem("Window/Comics/Comics Editor")]
 		public static void ShowWindow()
 		{
 			var w = GetWindow<ComicsEditorWindow>();
 			w.titleContent = new GUIContent("Comics Editor");
-			w.minSize = new Vector2(800, 500);
+			w.minSize = new Vector2(900, 600);
 		}
 
 		void OnDisable()
@@ -64,6 +71,7 @@ namespace ComicsUnity
 		{
 			titleContent = new GUIContent(_session.Title);
 
+			// Toolbar
 			EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 			if (GUILayout.Button("New Comics", EditorStyles.toolbarButton))
 			{
@@ -87,30 +95,42 @@ namespace ComicsUnity
 			if (GUILayout.Button("Save", EditorStyles.toolbarButton))
 				_session.Save();
 			GUILayout.FlexibleSpace();
+
+			// Sync scroll toggle
+			_session.SyncScrollToSelection = GUILayout.Toggle(_session.SyncScrollToSelection, "Sync Scroll", EditorStyles.toolbarButton, GUILayout.Width(80));
+
 			EditorGUILayout.EndHorizontal();
 
+			// Main layout: Left panel | Right panel (Preview + Timeline + Inspector)
 			EditorGUILayout.BeginHorizontal();
 
-			_leftScroll = EditorGUILayout.BeginScrollView(_leftScroll, GUILayout.Width(300));
+			// Left panel
+			_leftScroll = EditorGUILayout.BeginScrollView(_leftScroll, GUILayout.Width(280));
 			DrawLeftPanel();
 			EditorGUILayout.EndScrollView();
 
-			_previewScroll = EditorGUILayout.BeginScrollView(_previewScroll);
-			DrawPreviewPanel();
-			EditorGUILayout.EndScrollView();
+			// Right panel
+			EditorGUILayout.BeginVertical();
+			DrawRightPanel();
+			EditorGUILayout.EndVertical();
 
 			EditorGUILayout.EndHorizontal();
+
+			// Handle keyboard shortcuts
+			HandleKeyboard();
 		}
 
 		void DrawLeftPanel()
 		{
+			// Document settings
+			EditorGUILayout.LabelField("Document", EditorStyles.boldLabel);
 			EditorGUI.BeginChangeCheck();
-			_session.Document.Width = EditorGUILayout.IntField("Canvas width", _session.Document.Width);
-			_session.Document.Height = EditorGUILayout.IntField("Canvas height", _session.Document.Height);
+			_session.Document.Width = EditorGUILayout.IntField("Width", _session.Document.Width);
+			_session.Document.Height = EditorGUILayout.IntField("Height", _session.Document.Height);
 			if (EditorGUI.EndChangeCheck())
 				InvalidatePreviews();
 
-			var sc = EditorGUILayout.Slider("Scroll (scene)", (float)_session.Scroll, 0f, 12000f);
+			var sc = EditorGUILayout.Slider("Scroll", (float)_session.Scroll, 0f, 12000f);
 			if (!Mathf.Approximately((float)_session.Scroll, sc))
 			{
 				_session.Scroll = sc;
@@ -125,7 +145,10 @@ namespace ComicsUnity
 			}
 
 			EditorGUILayout.Space(8);
-			if (GUILayout.Button("Add layer (image)…"))
+
+			// Add buttons
+			EditorGUILayout.BeginHorizontal();
+			if (GUILayout.Button("+ Layer"))
 			{
 				var path = EditorUtility.OpenFilePanel("Image", "", "png,jpg,jpeg");
 				if (!string.IsNullOrEmpty(path))
@@ -134,7 +157,7 @@ namespace ComicsUnity
 					InvalidatePreviews();
 				}
 			}
-			if (GUILayout.Button("Add sound (mp3)…"))
+			if (GUILayout.Button("+ Sound"))
 			{
 				var path = EditorUtility.OpenFilePanel("Audio", "", "mp3");
 				if (!string.IsNullOrEmpty(path))
@@ -143,25 +166,36 @@ namespace ComicsUnity
 					InvalidatePreviews();
 				}
 			}
+			EditorGUILayout.EndHorizontal();
 
+			EditorGUILayout.Space(4);
+
+			// Layers list
 			EditorGUILayout.LabelField("Layers", EditorStyles.boldLabel);
 			for (var i = 0; i < _session.Document.Layers.Count; i++)
 			{
 				EditorGUILayout.BeginHorizontal();
 				var sel = _session.SelectedLayerIndex == i;
-				var n = GUILayout.Toggle(sel, $"Layer {i}", "Button");
-				if (n && !sel) _session.SelectedLayerIndex = i;
-				if (GUILayout.Button("↑", GUILayout.Width(24)))
+				if (GUILayout.Toggle(sel, $"Layer {i}", "Button"))
+				{
+					if (!sel)
+					{
+						_session.SelectedLayerIndex = i;
+						_session.SelectedSoundIndex = -1;
+						_session.SelectedAnim = null;
+					}
+				}
+				if (GUILayout.Button("↑", GUILayout.Width(22)))
 				{
 					_session.MoveLayer(i, -1);
 					InvalidatePreviews();
 				}
-				if (GUILayout.Button("↓", GUILayout.Width(24)))
+				if (GUILayout.Button("↓", GUILayout.Width(22)))
 				{
 					_session.MoveLayer(i, 1);
 					InvalidatePreviews();
 				}
-				if (GUILayout.Button("✕", GUILayout.Width(24)))
+				if (GUILayout.Button("✕", GUILayout.Width(22)))
 				{
 					_session.DeleteLayer(i);
 					InvalidatePreviews();
@@ -170,27 +204,124 @@ namespace ComicsUnity
 				EditorGUILayout.EndHorizontal();
 			}
 
-			EditorGUILayout.Space(6);
-			EditorGUILayout.LabelField($"Sounds: {_session.Document.Sounds.Count}", EditorStyles.miniLabel);
+			EditorGUILayout.Space(4);
 
-			if (_session.SelectedLayerIndex >= 0 &&
-			    _session.SelectedLayerIndex < _session.Document.Layers.Count)
+			// Sounds list
+			EditorGUILayout.LabelField("Sounds", EditorStyles.boldLabel);
+			for (var i = 0; i < _session.Document.Sounds.Count; i++)
 			{
-				EditorGUILayout.Space(8);
-				EditorGUILayout.LabelField("Selected layer (at scroll)", EditorStyles.boldLabel);
-				_session.EvaluateLayer(_session.SelectedLayerIndex, out var tr, out var rot, out var sca, out var al);
-				EditorGUILayout.LabelField($"Translate", $"{tr?.X ?? 0}, {tr?.Y ?? 0}");
-				EditorGUILayout.LabelField($"Rotate", $"{rot?.Angle ?? 0:F1}°");
-				EditorGUILayout.LabelField($"Scale", $"{sca?.ScaleX ?? 1:F2}, {sca?.ScaleY ?? 1:F2}");
-				EditorGUILayout.LabelField($"Alpha", $"{al?.Alpha ?? 1:F2}");
-
-				if (GUILayout.Button("Add translate key segment"))
+				EditorGUILayout.BeginHorizontal();
+				var sel = _session.SelectedSoundIndex == i;
+				var sound = _session.Document.Sounds[i];
+				if (GUILayout.Toggle(sel, sound.File ?? $"Sound {i}", "Button"))
 				{
-					var layer = _session.Document.Layers[_session.SelectedLayerIndex];
-					Anim.Add(layer.Animations, AnimTypes.Translate, _session.Scroll);
+					if (!sel)
+					{
+						_session.SelectedSoundIndex = i;
+						_session.SelectedLayerIndex = -1;
+						_session.SelectedAnim = null;
+					}
+				}
+				if (GUILayout.Button("↑", GUILayout.Width(22)))
+				{
+					_session.MoveSound(i, -1);
+				}
+				if (GUILayout.Button("↓", GUILayout.Width(22)))
+				{
+					_session.MoveSound(i, 1);
+				}
+				if (GUILayout.Button("✕", GUILayout.Width(22)))
+				{
+					_session.DeleteSound(i);
+					break;
+				}
+				EditorGUILayout.EndHorizontal();
+			}
+
+			EditorGUILayout.Space(8);
+
+			// Animation buttons
+			DrawAnimationButtons();
+		}
+
+		void DrawAnimationButtons()
+		{
+			EditorGUILayout.LabelField("Add Animation", EditorStyles.boldLabel);
+
+			if (_session.SelectedLayerIndex >= 0)
+			{
+				EditorGUILayout.BeginHorizontal();
+				if (GUILayout.Button("Translate", GUILayout.Height(24)))
+				{
+					_session.AddLayerAnim(_session.SelectedLayerIndex, AnimTypes.Translate);
+					InvalidatePreviews();
+				}
+				if (GUILayout.Button("Rotate", GUILayout.Height(24)))
+				{
+					_session.AddLayerAnim(_session.SelectedLayerIndex, AnimTypes.Rotate);
+					InvalidatePreviews();
+				}
+				EditorGUILayout.EndHorizontal();
+
+				EditorGUILayout.BeginHorizontal();
+				if (GUILayout.Button("Scale", GUILayout.Height(24)))
+				{
+					_session.AddLayerAnim(_session.SelectedLayerIndex, AnimTypes.Scale);
+					InvalidatePreviews();
+				}
+				if (GUILayout.Button("Alpha", GUILayout.Height(24)))
+				{
+					_session.AddLayerAnim(_session.SelectedLayerIndex, AnimTypes.Alpha);
+					InvalidatePreviews();
+				}
+				EditorGUILayout.EndHorizontal();
+			}
+			else if (_session.SelectedSoundIndex >= 0)
+			{
+				if (GUILayout.Button("Add Sound Trigger", GUILayout.Height(24)))
+				{
+					_session.AddSoundAnim(_session.SelectedSoundIndex);
+				}
+			}
+			else
+			{
+				EditorGUILayout.HelpBox("Select a layer or sound to add animations", MessageType.Info);
+			}
+
+			// Delete selected anim
+			if (_session.SelectedAnim != null)
+			{
+				EditorGUILayout.Space(4);
+				if (GUILayout.Button("Delete Selected Anim", GUILayout.Height(24)))
+				{
+					_session.RemoveSelectedAnim();
 					InvalidatePreviews();
 				}
 			}
+		}
+
+		void DrawRightPanel()
+		{
+			// Preview panel (top)
+			_previewScroll = EditorGUILayout.BeginScrollView(_previewScroll, GUILayout.Height(position.height * 0.5f));
+			DrawPreviewPanel();
+			EditorGUILayout.EndScrollView();
+
+			// Timeline panel (middle)
+			EditorGUILayout.LabelField("Timeline", EditorStyles.boldLabel);
+			var timelineRect = GUILayoutUtility.GetRect(100, _timeline.GetHeight(), GUILayout.ExpandWidth(true));
+			var newSelection = _timeline.Draw(timelineRect, _session);
+			if (newSelection != null)
+			{
+				_session.SelectedAnim = newSelection;
+				InvalidatePreviews();
+			}
+
+			EditorGUILayout.Space(4);
+
+			// Inspector panel (bottom)
+			EditorGUILayout.LabelField("Inspector", EditorStyles.boldLabel);
+			DrawInspectorPanel();
 		}
 
 		void DrawPreviewPanel()
@@ -217,6 +348,46 @@ namespace ComicsUnity
 			}
 		}
 
+		void DrawInspectorPanel()
+		{
+			// Animation inspector
+			if (_session.SelectedAnim != null)
+			{
+				if (_animInspector.Draw(_session.SelectedAnim))
+					InvalidatePreviews();
+			}
+			// Layer inspector
+			else if (_session.SelectedLayerIndex >= 0 && _session.SelectedLayerIndex < _session.Document.Layers.Count)
+			{
+				var layer = _session.Document.Layers[_session.SelectedLayerIndex];
+				var (imagePath, popupPath) = _layerInspector.Draw(layer, _session.Culture);
+
+				if (!string.IsNullOrEmpty(imagePath))
+				{
+					_session.SetLayerImage(_session.SelectedLayerIndex, _session.Culture, imagePath);
+					InvalidatePreviews();
+				}
+				if (!string.IsNullOrEmpty(popupPath))
+				{
+					_session.SetLayerPopup(_session.SelectedLayerIndex, _session.Culture, popupPath);
+					InvalidatePreviews();
+				}
+
+				// Show evaluated transforms
+				EditorGUILayout.Space(4);
+				EditorGUILayout.LabelField("Current Transform (at scroll)", EditorStyles.miniLabel);
+				_session.EvaluateLayer(_session.SelectedLayerIndex, out var tr, out var rot, out var sca, out var al);
+				EditorGUILayout.LabelField($"  Translate: ({tr?.X ?? 0}, {tr?.Y ?? 0})");
+				EditorGUILayout.LabelField($"  Rotate: {rot?.Angle ?? 0:F1}°");
+				EditorGUILayout.LabelField($"  Scale: ({sca?.ScaleX ?? 1:F2}, {sca?.ScaleY ?? 1:F2})");
+				EditorGUILayout.LabelField($"  Alpha: {al?.Alpha ?? 1:F2}");
+			}
+			else
+			{
+				EditorGUILayout.HelpBox("Select a layer, sound, or animation to inspect", MessageType.Info);
+			}
+		}
+
 		void DrawComposedPreview()
 		{
 			EnsureStagePreview();
@@ -227,7 +398,6 @@ namespace ComicsUnity
 				return;
 			}
 
-			// Calculate preview rect maintaining document aspect ratio
 			float docW = _session.Document.Width;
 			float docH = _session.Document.Height;
 			if (docW <= 0 || docH <= 0)
@@ -236,8 +406,8 @@ namespace ComicsUnity
 				return;
 			}
 
-			float maxW = Mathf.Min(600f, position.width - 320);
-			float maxH = position.height - 100;
+			float maxW = Mathf.Min(500f, position.width - 300);
+			float maxH = position.height * 0.4f;
 			float aspect = docW / docH;
 
 			float previewW, previewH;
@@ -255,7 +425,6 @@ namespace ComicsUnity
 			var rect = GUILayoutUtility.GetRect(previewW, previewH);
 			_stagePreview?.Draw(rect, (float)_session.Scroll, _session.Culture);
 
-			// Show current scroll info
 			EditorGUILayout.LabelField($"Scroll: {_session.Scroll:F0} | Document: {docW}×{docH}", EditorStyles.miniLabel);
 		}
 
@@ -282,10 +451,10 @@ namespace ComicsUnity
 				EditorGUILayout.LabelField($"Layer {i} — pos ({dx}, {dy}) rot {rotate?.Angle ?? 0:F0}° scale ({scale?.ScaleX ?? 1:F2},{scale?.ScaleY ?? 1:F2}) α {alpha?.Alpha ?? 1:F2}");
 				if (tex != null)
 				{
-					var maxW = Mathf.Min(500f, position.width - 320);
+					var maxW = Mathf.Min(400f, position.width - 300);
 					var ratio = tex.height > 0 ? (float)tex.width / tex.height : 1f;
 					var h = maxW / Mathf.Max(0.01f, ratio);
-					h = Mathf.Min(h, 400f);
+					h = Mathf.Min(h, 300f);
 					var r = GUILayoutUtility.GetRect(maxW, h);
 					var prev = GUI.color;
 					GUI.color = new Color(1f, 1f, 1f, (float)(alpha?.Alpha ?? 1));
@@ -298,6 +467,25 @@ namespace ComicsUnity
 
 			if (_session.Document.Layers.Count == 0)
 				EditorGUILayout.HelpBox("Add a layer or open a .comics / .puzzle document.", MessageType.Info);
+		}
+
+		void HandleKeyboard()
+		{
+			var evt = Event.current;
+			if (evt.type != EventType.KeyDown) return;
+
+			switch (evt.keyCode)
+			{
+				case KeyCode.Delete:
+				case KeyCode.Backspace:
+					if (_session.SelectedAnim != null)
+					{
+						_session.RemoveSelectedAnim();
+						InvalidatePreviews();
+						evt.Use();
+					}
+					break;
+			}
 		}
 	}
 }
