@@ -14,7 +14,8 @@ DRAFTING
 
 ## Blockers
 
-- Depends on clarified pivot/scale composition order from WPF templates.
+- Depends on `sdd-comics.engine-shared-core` for FolderSource/AnimationProcessor
+- Transform composition order clarified in ADR-006
 
 ## Progress
 

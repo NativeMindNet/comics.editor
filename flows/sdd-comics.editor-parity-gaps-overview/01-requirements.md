@@ -101,19 +101,56 @@ The Unity **Comics Editor** window is a first port of the legacy **WPF Comics.Ed
 ### Recommended Execution Order (Dependencies)
 
 ```
-Phase 1 (Foundation) - Parallel:
-├── sdd-unity-asset-pipeline-fidelity (validates round-trip)
-└── sdd-unity-canvas-preview-transforms (visual feedback)
+Phase 0 (Foundation - ENGINE REFACTORING):
+└── sdd-comics.engine-shared-core (IComicsSource abstraction)
+    ├── Extracts: FolderSource from ZipArchiveProvider
+    ├── Enables: Editor preview using runtime engine
+    └── Shared: AnimationProcessor, TileRenderer
+
+Phase 1 (Editor Preview) - Parallel:
+├── sdd-comics.editor-asset-pipeline-fidelity (validates round-trip)
+└── sdd-comics.editor-canvas-preview-transforms (visual feedback)
+    ├── Uses: shared core AnimationProcessor
+    └── sdd-comics.editor-engine-preview (full validation)
+        └── Uses: ComicsViewer + FolderSource
 
 Phase 2 (Authoring Core):
-└── sdd-unity-animation-timeline-ui (all anim CRUD)
+└── sdd-comics.editor-animation-timeline-ui (all anim CRUD)
     └── Depends on: canvas preview for feedback
 
 Phase 3 (Media + Safety):
-├── sdd-unity-audio-preview (sound playback)
-│   └── Depends on: canvas preview (timeline UX)
-└── sdd-unity-undo-redo (crash protection)
+├── sdd-comics.editor-audio-preview (sound playback)
+│   └── Depends on: engine preview (sound integration)
+└── sdd-comics.editor-undo-redo (crash protection)
     └── Depends on: animation commands finalized
+```
+
+### Engine Integration Architecture
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  comics.editor                                             │
+│  ┌─────────────────────┐  ┌────────────────────────────┐  │
+│  │ Canvas Preview      │  │ Engine Preview             │  │
+│  │ (inline editing)    │  │ ("Preview as Player")      │  │
+│  │ - selection handles │  │ - full scroll + audio      │  │
+│  │ - instant update    │  │ - runtime validation       │  │
+│  └──────────┬──────────┘  └──────────────┬─────────────┘  │
+│             │                            │                 │
+│             └────────────┬───────────────┘                 │
+│                          ▼                                 │
+│  ┌───────────────────────────────────────────────────────┐│
+│  │  comics.engine (shared core)                          ││
+│  │  ┌─────────────────┐  ┌────────────────────────────┐  ││
+│  │  │  FolderSource   │  │  AnimationProcessor        │  ││
+│  │  │  (editor temp)  │  │  (Scale→Rotate→Translate)  │  ││
+│  │  └─────────────────┘  └────────────────────────────┘  ││
+│  │  ┌─────────────────┐  ┌────────────────────────────┐  ││
+│  │  │  ZipArchiveSource│  │  TileRenderer             │  ││
+│  │  │  (runtime)      │  │  (TILE_SIZE=512)           │  ││
+│  │  └─────────────────┘  └────────────────────────────┘  ││
+│  └───────────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────┘
 ```
 
 ### Architecture Differences

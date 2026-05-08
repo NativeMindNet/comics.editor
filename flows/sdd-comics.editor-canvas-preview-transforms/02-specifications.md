@@ -61,6 +61,86 @@ interface IStageRenderer {
 
 ---
 
+## Engine Integration (Shared Core)
+
+> Added 2026-05-08
+
+### Using comics.engine for Transform Calculation
+
+Instead of duplicating animation logic, the editor should use the same `AnimationProcessor` from `comics.engine`:
+
+```csharp
+// In ComicsEditorWindow:
+private ComicsViewer _previewViewer;
+private FolderSource _folderSource;
+
+private void InitializePreview()
+{
+    _folderSource = new FolderSource(_tempFolderPath);
+    _previewViewer = CreateHiddenViewer();
+    _previewViewer.Initialize(_folderSource);
+}
+
+private void RenderPreviewCanvas(Rect rect)
+{
+    // Get transforms from engine (same logic as runtime)
+    var transforms = _previewViewer.GetLayerTransforms(_scrollPosition);
+
+    foreach (var (layer, matrix, alpha) in transforms)
+    {
+        // Apply matrix to GUI/UIToolkit
+        DrawLayerWithTransform(rect, layer, matrix, alpha);
+    }
+}
+
+private void OnDocumentModified()
+{
+    SaveDataJson();
+    _previewViewer.RefreshFromSource();
+}
+```
+
+### Architecture with Shared Core
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  comics.editor (EditorWindow)                               │
+│  ┌───────────────────────┐    ┌──────────────────────────┐  │
+│  │  ComicsEditorWindow   │    │  IMGUI/UIToolkit Stage   │  │
+│  │  - scroll control     │───►│  - DrawLayerWithTransform│  │
+│  │  - layer list         │    │  - selection handles     │  │
+│  └───────────────────────┘    └──────────────────────────┘  │
+│              │                            ▲                  │
+│              ▼                            │                  │
+│  ┌───────────────────────────────────────┴─────────────────┐│
+│  │  comics.engine (Runtime - shared core)                  ││
+│  │  ┌─────────────────┐  ┌──────────────────────────────┐  ││
+│  │  │  FolderSource   │  │  AnimationProcessor          │  ││
+│  │  │  (IComicsSource)│  │  - Process(scroll)           │  ││
+│  │  │  - LoadData()   │  │  - GetLayerTransforms()      │  ││
+│  │  │  - LoadTile()   │  │  - Scale→Rotate→Translate    │  ││
+│  │  │  - Invalidate() │  │  - Easing: (f-1)³+1          │  ││
+│  │  └─────────────────┘  └──────────────────────────────┘  ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Benefits
+
+| Aspect | Duplicate Logic | Shared Core |
+|--------|-----------------|-------------|
+| Transform correctness | Risk of drift | Guaranteed match |
+| Bug fixes | Must apply twice | Single fix |
+| Easing formula | Could differ | Invariant enforced |
+| Maintenance | 2 codebases | 1 codebase |
+
+### Dependencies
+
+- `sdd-comics.engine-shared-core`: IComicsSource, FolderSource
+- `adr-006-transform-composition-order`: Transform invariants
+
+---
+
 ## Approval
 
 - [ ] Reviewed by: [name]

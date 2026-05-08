@@ -64,16 +64,47 @@
 
 ## Last Action
 
-2026-05-08: BFS traversal complete. Analyzed 5 domains, updated 5 flows with Legacy Additions.
+2026-05-08: Created refactoring SDDs for comics.engine shared core and editor integration.
+
+## New Flows Created
+
+| Flow | Purpose |
+|------|---------|
+| `sdd-comics.engine-shared-core` | IComicsSource abstraction for runtime/editor |
+| `sdd-comics.editor-engine-preview` | "Preview as Player" validation mode |
+
+## Updated Flows
+
+| Flow | Change |
+|------|--------|
+| `sdd-comics.engine-csharp-unity` | Added shared core refactoring section |
+| `sdd-comics.editor-canvas-preview-transforms` | Added engine integration architecture |
 
 ## Next Action
 
 1. Create ADRs from candidates (optional)
 2. Continue with SDD implementations per prioritization:
-   - Phase 1: sdd-unity-asset-pipeline-fidelity + sdd-unity-canvas-preview-transforms
-   - Phase 2: sdd-unity-animation-timeline-ui
-   - Phase 3: sdd-unity-audio-preview + sdd-unity-undo-redo
+
+```
+Phase 0 (Foundation - NEW):
+└── sdd-comics.engine-shared-core (IComicsSource abstraction)
+    └── Enables: canvas preview + engine preview
+
+Phase 1 (Editor Preview):
+├── sdd-comics.editor-asset-pipeline-fidelity (validates round-trip)
+└── sdd-comics.editor-canvas-preview-transforms (uses shared core)
+    └── sdd-comics.editor-engine-preview (full validation)
+
+Phase 2 (Authoring Core):
+└── sdd-comics.editor-animation-timeline-ui (all anim CRUD)
+    └── Depends on: canvas preview for feedback
+
+Phase 3 (Media + Safety):
+├── sdd-comics.editor-audio-preview (sound playback)
+│   └── Depends on: engine preview (sound integration)
+└── sdd-comics.editor-undo-redo (crash protection)
+```
 
 ---
 
-*Updated by /legacy on 2026-05-08*
+*Updated by Claude on 2026-05-08*
