@@ -167,8 +167,97 @@ struct DocumentModel {
 ## Open Design Questions
 
 - [ ] Zip vs alternative container (but still single file).
-- [ ] Strictness of validation and “open anyway” policy.
+- [ ] Strictness of validation and "open anyway" policy.
 - [ ] Canonical tile naming vs manifest-only addressing.
+
+---
+
+## Data Models - Legacy Additions
+> Added by /legacy on 2026-05-08
+
+### Animation Type Hierarchy
+
+The existing models use a polymorphic animation system:
+
+```csharp
+Anim (abstract)
+├── Start (int) - scroll position begin
+├── End (int) - scroll position end
+├── Type (AnimTypes enum: Translate, Rotate, Scale, Alpha, Sound)
+├── Interpolate(Anim, double) - abstract interpolation method
+│
+├── TranslateAnim
+│   ├── X (int) - horizontal offset
+│   └── Y (int) - vertical offset
+│
+├── RotateAnim extends PivotAnim
+│   └── Angle (double) - rotation in degrees
+│
+├── ScaleAnim extends PivotAnim
+│   ├── ScaleX (double) - horizontal scale multiplier
+│   └── ScaleY (double) - vertical scale multiplier
+│
+├── AlphaAnim
+│   └── Alpha (double) - opacity 0-1
+│
+├── SoundAnim
+│   └── [marks playback point in timeline]
+│
+└── PivotAnim (abstract)
+    ├── PivotX (double, default 0.5) - normalized X pivot
+    └── PivotY (double, default 0.5) - normalized Y pivot
+```
+
+### Interpolation Formula
+
+Animation easing uses a cubic function:
+```csharp
+protected double Factor(double t)
+{
+    return (--t) * t * t + 1;  // Ease-out cubic
+}
+```
+- `t` ranges from 0.0 to 1.0 (normalized progress)
+- Formula produces smooth deceleration
+
+### Serialization Details
+
+Current serialization relies on `TypeNameHandling.Auto`:
+```json
+{
+  "animations": [
+    { "$type": "ComicsUnity.Models.TranslateAnim, ComicsUnity", "start": 0, "end": 100, "x": 10, "y": 20 },
+    { "$type": "ComicsUnity.Models.AlphaAnim, ComicsUnity", "start": 100, "end": 200, "alpha": 0.5 }
+  ]
+}
+```
+
+**Risks:**
+- Class rename/namespace change breaks document loading
+- v2 should consider explicit type discriminator: `"animType": "translate"`
+
+### Culture Handling Mismatch
+
+| Layer | Cultures Supported |
+|-------|-------------------|
+| Comics.Core (DAL) | En, Ru (2 cultures) |
+| Comics.Editor (WPF) | En, Ru, Hi (3 cultures) |
+| UnityComicsEditor | En, Ru, Hi (3 cultures) |
+
+**Implication:** Hindi content in editor cannot roundtrip to Core database. v2 should document culture expansion strategy.
+
+### Collection Type Divergence
+
+| Platform | Animations Collection Type |
+|----------|---------------------------|
+| WPF | `ObservableCollection<Anim>` (for UI binding) |
+| Unity | `List<Anim>` |
+
+v2 schema should standardize on JSON array; runtime can wrap as needed.
+
+### Pivot Initialization Edge Case
+
+`PivotAnim.Init()` sets defaults to (0.5, 0.5), but is only called explicitly. Deserialization may skip this, leaving pivots at 0. v2 should serialize pivot defaults explicitly or guarantee initialization.
 
 ---
 

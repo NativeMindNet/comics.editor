@@ -130,6 +130,134 @@ struct HitResult {
 
 ---
 
+## WPF Implementation Details - Legacy Additions
+> Added by /legacy on 2026-05-08
+
+### Transform Composition Order (WPF)
+
+WPF applies transforms at **multiple DOM levels**, which differs from a single matrix multiplication:
+
+```xml
+<ContentPresenter Canvas.Left="{Binding Translate.X}"
+                  Canvas.Top="{Binding Translate.Y}"
+                  RenderTransformOrigin="{Binding Rotate.Pivot}">
+  <RotateTransform Angle="{Binding Rotate.Angle}"/>
+
+  <Grid RenderTransformOrigin="{Binding Scale.Pivot}">
+    <Image Opacity="{Binding Alpha.Alpha}"/>
+    <Grid.RenderTransform>
+      <ScaleTransform ScaleX="{Binding Scale.ScaleX}"
+                      ScaleY="{Binding Scale.ScaleY}"/>
+    </Grid.RenderTransform>
+  </Grid>
+</ContentPresenter>
+```
+
+**Effective order:** Translate → Rotate (around pivot) → Scale (around separate pivot) → Alpha
+
+**WARNING:** Rotation and scale have **separate pivots** at different DOM levels. New implementation should decide: unified pivot vs. per-transform pivots.
+
+### Tile Assembly Strategy
+
+**WPF (ImagePathConverter):**
+```csharp
+private ImageSource TileImage(string folder, Image image)
+{
+    var fileName = string.Format(image.File, scale, "*", "*");
+    var visual = new DrawingVisual();
+
+    using (var context = visual.RenderOpen())
+    {
+        foreach (var file in Directory.GetFiles(folder, fileName))
+        {
+            // Parse col, row from filename
+            var x = col * FileManager.TileSize;  // 512
+            var y = row * FileManager.TileSize;
+            context.DrawImage(LoadBitmap(file), new Rect(x, y, w, h));
+        }
+    }
+
+    // Render at HALF resolution for performance
+    var bmp = new RenderTargetBitmap(
+        image.Width / 2, image.Height / 2,
+        48, 48, PixelFormats.Pbgra32);
+    bmp.Render(visual);
+    return BitmapToPng(bmp);
+}
+```
+
+**Key details:**
+- Tiles stitched to single composite texture
+- Rendered at **50% resolution** (TileScale = 2 divisor)
+- Cached as PNG in memory
+- No lazy tile loading
+
+### Hit Testing Gaps (WPF)
+
+**Current implementation is BROKEN:**
+```csharp
+private void Button_Click(object sender, RoutedEventArgs e)
+{
+    var btn = sender as ToggleButton;
+    Model.SelectedItem = btn?.IsChecked == true ?
+        btn?.DataContext as LayerViewModel : null;
+}
+```
+
+**Problems:**
+1. No inverse transform applied
+2. Tests against axis-aligned bounds, not transformed shape
+3. Rotated rectangle's click area remains rectangular (incorrect)
+
+**Correct approach:**
+1. Convert screen point to document coordinates
+2. For each layer (front-to-back):
+   - Apply inverse of layer's transform matrix
+   - Test point against layer's local bounds
+   - Return first hit
+
+### Z-Order Semantics
+
+- `Layers[0]` = drawn first (back)
+- `Layers[N]` = drawn last (front)
+- Order from document model; no runtime z-index changes
+- WPF ItemsControl renders in list order automatically
+
+### Scroll vs. Viewport Pan
+
+**IMPORTANT:** The `Scroll` property is NOT viewport pan.
+
+```csharp
+public double Scroll
+{
+    set
+    {
+        _scroll = value;
+        foreach (var layer in Layers)
+            layer.Scroll();  // Recalculate animation state
+        foreach (var sound in Sounds)
+            sound.Scroll();  // Update audio playback
+    }
+}
+```
+
+**Scroll** = timeline position (0-12000 range)
+**Viewport pan** = handled by ScrollViewer/Viewbox separately
+
+Consider renaming to `TimelinePosition` to avoid confusion.
+
+### Layer Visibility
+
+```csharp
+public Visibility Visibility => IsVisible ? Visibility.Visible : Visibility.Collapsed;
+```
+
+- `Visibility.Collapsed` = completely hidden (no render)
+- `Alpha.Alpha` = opacity (0.0-1.0) for visible layers only
+- Visibility and alpha are independent; layer can be hidden while alpha animation plays
+
+---
+
 ## Approval
 
 - [ ] Reviewed by: [name]

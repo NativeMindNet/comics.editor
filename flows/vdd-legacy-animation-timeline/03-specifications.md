@@ -114,6 +114,151 @@ struct AnimSegment {
 
 ---
 
+## Behavior Specifications - Legacy Additions
+> Added by /legacy on 2026-05-08
+
+### FindNearest Algorithm (Current WPF Implementation)
+
+The legacy system uses `FindNearest<T>()` to locate the active segment:
+
+```csharp
+private static (T prev, T curr) FindNearest<T>(IList<Anim> anims, double scroll)
+{
+    T prev = null, curr = null;
+
+    foreach (var anim in anims.OfType<T>().OrderBy(x => x.Start))
+    {
+        if (anim.End <= scroll)
+            prev = anim;           // completed segment
+        else
+        {
+            if (anim.Start < scroll)
+                curr = anim;       // currently active
+            break;
+        }
+    }
+
+    if (prev == null) { prev = new T(); prev.Init(); }
+    return (prev, curr);
+}
+```
+
+**Logic:**
+1. Iterate segments ordered by Start time
+2. `prev` = last segment that completed (End <= scroll)
+3. `curr` = segment currently active (Start < scroll < End)
+4. If no `prev`, create default instance with Init() defaults
+5. If `curr` exists, interpolate between prev and curr
+
+### Easing Factor Formula
+
+The legacy system uses a hardcoded cubic ease-out:
+
+```csharp
+protected double Factor(double scroll)
+{
+    var t = (scroll - Start) / (End - Start);  // normalize to [0, 1]
+    return (--t) * t * t + 1;                  // cubic ease-out
+}
+```
+
+**Characteristics:**
+- Pre-decrement `--t` transforms range from [0,1] to [-1,0]
+- Result: slow start, fast middle, smooth deceleration
+- Formula equivalent to standard ease-out-cubic
+
+### Segment Lifecycle (WPF Implementation)
+
+**Create (Add):**
+```csharp
+public static T Add<T>(IList<Anim> anims, double scroll)
+{
+    var prev = FindNearest<T>(anims, double.MaxValue).prev;
+    var anim = (T)prev.MemberwiseClone();
+    anim.Start = scroll > prev.End ? (int)scroll : prev.End + 1;
+    anim.End = anim.Start + 200;  // Default duration: 200 scroll units
+    anims.Add(anim);
+    return anim;
+}
+```
+
+**Default Values (via Init()):**
+| Type | Defaults |
+|------|----------|
+| TranslateAnim | X=0, Y=0 |
+| RotateAnim | Angle=0, PivotX=0.5, PivotY=0.5 |
+| ScaleAnim | ScaleX=1.0, ScaleY=1.0, PivotX=0.5, PivotY=0.5 |
+| AlphaAnim | Alpha=1.0 |
+| SoundAnim | Point trigger (Start=scroll, End=scroll) |
+
+**Resize/Move (Drag Handles):**
+```csharp
+// Top thumb: resize start
+anim.Start = Math.Min(anim.Start + delta, anim.End);
+
+// Bottom thumb: resize end
+anim.End = Math.Max(anim.End + delta, anim.Start);
+
+// Center thumb: move both
+anim.Start += delta;
+anim.End += delta;
+```
+
+### Scroll Propagation Architecture
+
+Single `Scroll` property broadcasts to all layers/sounds:
+
+```csharp
+public double Scroll
+{
+    set {
+        _scroll = value;
+        OnPropertyChanged(nameof(Scroll));
+        foreach (var layer in Layers) layer.Scroll();  // All layers update
+        foreach (var sound in Sounds) sound.Scroll();  // All sounds update
+    }
+}
+```
+
+**LayerViewModel.Scroll():**
+```csharp
+public void Scroll()
+{
+    Translate = Anim.Interpolate<TranslateAnim>(Layer.Animations, SelectedAnim, scroll);
+    Rotate = Anim.Interpolate<RotateAnim>(Layer.Animations, SelectedAnim, scroll);
+    Scale = Anim.Interpolate<ScaleAnim>(Layer.Animations, SelectedAnim, scroll);
+    Alpha = Anim.Interpolate<AlphaAnim>(Layer.Animations, SelectedAnim, scroll);
+}
+```
+
+### SoundAnim Special Behavior
+
+Unlike other animation types, SoundAnim uses event-based triggering:
+
+```csharp
+// SoundAnim.FindCurrent() criteria:
+// Range: Start <= scroll && End >= scroll
+// Point trigger: Start == End && prevScroll < scroll && scroll >= Start
+
+// Playback behavior:
+if (anim.Start == anim.End)
+    Play(Playing);   // One-shot
+else
+    Play(Looping);   // Loop while in range
+```
+
+### Focus-Aware Property Editing
+
+TextBox binding shows live scroll position when focused:
+
+```csharp
+// ScrollConverter
+if (isFocused) return (int)scroll;  // Live position
+else return value;                   // Stored value
+```
+
+---
+
 ## Approval
 
 - [ ] Reviewed by: [name]

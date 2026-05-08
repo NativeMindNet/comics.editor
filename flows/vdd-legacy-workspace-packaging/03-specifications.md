@@ -99,6 +99,131 @@ interface AtomicWriter {
 
 ---
 
+## Legacy Implementation Details
+> Added by /legacy on 2026-05-08
+
+### Current Temp Directory Locations
+
+| Platform | Path | Notes |
+|----------|------|-------|
+| WPF | `%LOCALAPPDATA%\Comics Editor\Temp` | Windows-specific |
+| Unity | `Application.temporaryCachePath + /ComicsUnityEditor` | Cross-platform |
+
+### Cleanup Retry Logic
+
+Both platforms use 10-attempt retry with 100ms delays for folder deletion:
+
+```csharp
+public static void DeleteFolder()
+{
+    const int maxRetries = 10;
+    const int delayMs = 100;
+
+    for (int i = 0; i < maxRetries; i++)
+    {
+        try
+        {
+            if (Directory.Exists(TempFolder))
+                Directory.Delete(TempFolder, recursive: true);
+            return;
+        }
+        catch (Exception)
+        {
+            Thread.Sleep(delayMs);  // Handle file locks
+        }
+    }
+}
+```
+
+**Purpose:** Handles Windows file handle retention from previous sessions.
+
+### External Tool Dependencies (WPF Only)
+
+| Tool | Command | Purpose |
+|------|---------|---------|
+| 7za.exe | `a -tzip -mx0 "{output}" "{temp}\*"` | Pack bundle (no compression) |
+| 7za.exe | `x "{archive}" -o"{temp}"` | Extract bundle |
+
+**Location:** `Utils\7za.exe` (relative to binary)
+
+**Unity Replacement:** `System.IO.Compression.ZipFile` API
+
+### Current Save Flow (No Atomic Write)
+
+**WPF Current Implementation:**
+```csharp
+public void Save()
+{
+    // 1. Save metadata
+    Comics.Save();  // Writes data.json to TempFolder
+
+    // 2. Delete old file
+    if (File.Exists(FilePath))
+        File.Delete(FilePath);
+
+    // 3. Create new ZIP
+    ZipUtils.Zip(TempFolder + "/*", FilePath, compressionLevel: 0);
+}
+```
+
+**GAP IDENTIFIED:** No atomic write strategy. If crash occurs during Step 3:
+- Old file deleted (Step 2)
+- New file partially written
+- Data loss occurs
+
+**Proposed Fix (not yet implemented):**
+```csharp
+public void Save()
+{
+    string tempPath = FilePath + ".tmp";
+
+    Comics.Save();
+    ZipUtils.Zip(TempFolder + "/*", tempPath, 0);
+
+    // Atomic replace (Windows MoveFileEx or POSIX rename)
+    AtomicReplace(tempPath, FilePath);
+}
+```
+
+### Workspace Folder Structure
+
+```
+TempFolder/
+├── layers/           # Image tiles
+│   ├── image_1000_0_0.jpg
+│   ├── image_1000_1_0.jpg
+│   ├── image_500_0_0.jpg    # 0.5x scale
+│   └── ...
+├── sounds/           # Audio files
+│   └── music.mp3
+└── data.json         # Document metadata
+```
+
+### WPF vs Unity Comparison
+
+| Aspect | WPF | Unity |
+|--------|-----|-------|
+| ZIP library | 7za.exe (external) | ZipFile (built-in) |
+| Image processing | ImageMagick (external) | Texture2D API (built-in) |
+| Compression level | 0 (store mode) | CompressionLevel.Fastest |
+| Output format | Preserves JPG/PNG | PNG only |
+| Temp path | %LOCALAPPDATA% | Application.temporaryCachePath |
+| Atomic save | Not implemented | Not implemented |
+
+### Missing Recovery Mechanism
+
+**Current State:**
+- No detection of incomplete saves
+- No temp file preservation
+- No user-facing recovery prompt
+
+**Required for v2:**
+- Save marker file (e.g., `.saving` flag)
+- Recovery prompt on next open if marker exists
+- Option to recover workspace or discard
+
+---
+
 ## Approval
 
 - [ ] Reviewed by: [name]
