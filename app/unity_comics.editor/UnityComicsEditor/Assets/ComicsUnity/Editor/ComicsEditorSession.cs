@@ -2,11 +2,23 @@ using System;
 using System.IO;
 using UnityEditor;
 using ComicsUnity.Models;
+using ComicsUnity.Commands;
 
 namespace ComicsUnity
 {
 	public sealed class ComicsEditorSession
 	{
+		// Undo/Redo
+		public UndoStack UndoStack { get; } = new UndoStack(50);
+
+		public void Execute(IEditCommand command) => UndoStack.Execute(command);
+		public void Undo() => UndoStack.Undo();
+		public void Redo() => UndoStack.Redo();
+
+		// Audio preview
+		public bool DisableSound { get; set; }
+		public double PreviousScroll { get; set; }
+
 		public string FilePath { get; private set; }
 		public ComicsDocument Document { get; private set; } = new ComicsDocument();
 		public double Scroll { get; set; }
@@ -57,6 +69,7 @@ namespace ComicsUnity
 			Document = new ComicsDocument { Width = 1080, Height = 2160 };
 			SelectedLayerIndex = -1;
 			Scroll = 0;
+			UndoStack.Clear();
 		}
 
 		public void Open(string path)
@@ -68,6 +81,7 @@ namespace ComicsUnity
 			FileManagerUnity.CreateFolders();
 			Document = ComicsDocument.Load();
 			SelectedLayerIndex = Document.Layers.Count > 0 ? 0 : -1;
+			UndoStack.Clear();
 		}
 
 		public void Save()
@@ -90,6 +104,7 @@ namespace ComicsUnity
 			if (File.Exists(FilePath))
 				File.Delete(FilePath);
 			ZipUtility.ZipFromFolder(FileManagerUnity.TempFolder, FilePath);
+			UndoStack.Clear();
 		}
 
 		public void AddLayer(string imagePath)

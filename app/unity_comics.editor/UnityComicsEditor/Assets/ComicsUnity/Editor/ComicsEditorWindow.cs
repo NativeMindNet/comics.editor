@@ -1,10 +1,13 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 using ComicsUnity.Models;
 using ComicsUnity.Preview;
 using ComicsUnity.Inspector;
 using ComicsUnity.Timeline;
+using ComicsUnity.Audio;
 
 namespace ComicsUnity
 {
@@ -25,6 +28,9 @@ namespace ComicsUnity
 		AnimationInspector _animInspector = new AnimationInspector();
 		LayerInspector _layerInspector = new LayerInspector();
 
+		// Audio preview
+		EditorAudioManager _audioManager;
+
 		[MenuItem("Window/Comics/Comics Editor")]
 		public static void ShowWindow()
 		{
@@ -33,11 +39,27 @@ namespace ComicsUnity
 			w.minSize = new Vector2(900, 600);
 		}
 
+		void OnEnable()
+		{
+			_audioManager = new EditorAudioManager();
+			InitializeAudioManager();
+		}
+
+		void InitializeAudioManager()
+		{
+			if (_audioManager == null) return;
+			var soundsPath = Path.Combine(FileManagerUnity.TempFolder, FileManagerUnity.FolderSounds);
+			if (Directory.Exists(soundsPath))
+				_audioManager.Initialize(soundsPath);
+		}
+
 		void OnDisable()
 		{
 			ClearPreviewCache();
 			_stagePreview?.Dispose();
 			_stagePreview = null;
+			_audioManager?.Dispose();
+			_audioManager = null;
 		}
 
 		void ClearPreviewCache()
@@ -77,11 +99,13 @@ namespace ComicsUnity
 			{
 				_session.New(false);
 				InvalidatePreviews();
+				InitializeAudioManager();
 			}
 			if (GUILayout.Button("New Puzzle", EditorStyles.toolbarButton))
 			{
 				_session.New(true);
 				InvalidatePreviews();
+				InitializeAudioManager();
 			}
 			if (GUILayout.Button("Open…", EditorStyles.toolbarButton))
 			{
@@ -90,11 +114,39 @@ namespace ComicsUnity
 				{
 					_session.Open(path);
 					InvalidatePreviews();
+					InitializeAudioManager();
 				}
 			}
 			if (GUILayout.Button("Save", EditorStyles.toolbarButton))
 				_session.Save();
+
+			GUILayout.Space(10);
+
+			// Undo/Redo buttons
+			GUI.enabled = _session.UndoStack.CanUndo;
+			if (GUILayout.Button("Undo", EditorStyles.toolbarButton, GUILayout.Width(50)))
+			{
+				_session.Undo();
+				InvalidatePreviews();
+			}
+			GUI.enabled = _session.UndoStack.CanRedo;
+			if (GUILayout.Button("Redo", EditorStyles.toolbarButton, GUILayout.Width(50)))
+			{
+				_session.Redo();
+				InvalidatePreviews();
+			}
+			GUI.enabled = true;
+
 			GUILayout.FlexibleSpace();
+
+			// Sound toggle
+			var soundEnabled = !_session.DisableSound;
+			var newSoundEnabled = GUILayout.Toggle(soundEnabled, "Sound", EditorStyles.toolbarButton, GUILayout.Width(60));
+			if (newSoundEnabled != soundEnabled)
+			{
+				_session.DisableSound = !newSoundEnabled;
+				_audioManager?.SetEnabled(newSoundEnabled);
+			}
 
 			// Sync scroll toggle
 			_session.SyncScrollToSelection = GUILayout.Toggle(_session.SyncScrollToSelection, "Sync Scroll", EditorStyles.toolbarButton, GUILayout.Width(80));
@@ -133,8 +185,16 @@ namespace ComicsUnity
 			var sc = EditorGUILayout.Slider("Scroll", (float)_session.Scroll, 0f, 12000f);
 			if (!Mathf.Approximately((float)_session.Scroll, sc))
 			{
+				var prevScroll = _session.PreviousScroll;
 				_session.Scroll = sc;
 				InvalidatePreviews();
+
+				// Audio preview on scroll change
+				if (Math.Abs(sc - prevScroll) > 0.1)
+				{
+					_audioManager?.ProcessScroll(_session.Document.Sounds, prevScroll, sc);
+					_session.PreviousScroll = sc;
+				}
 			}
 
 			var cul = (Cultures)EditorGUILayout.EnumPopup("Culture", _session.Culture);
@@ -473,6 +533,31 @@ namespace ComicsUnity
 		{
 			var evt = Event.current;
 			if (evt.type != EventType.KeyDown) return;
+
+			// Undo: Ctrl+Z (Cmd+Z on macOS)
+			if ((evt.control || evt.command) && evt.keyCode == KeyCode.Z && !evt.shift)
+			{
+				if (_session.UndoStack.CanUndo)
+				{
+					_session.Undo();
+					InvalidatePreviews();
+					evt.Use();
+				}
+				return;
+			}
+
+			// Redo: Ctrl+Y or Ctrl+Shift+Z
+			if ((evt.control || evt.command) && evt.keyCode == KeyCode.Y ||
+			    (evt.control || evt.command) && evt.shift && evt.keyCode == KeyCode.Z)
+			{
+				if (_session.UndoStack.CanRedo)
+				{
+					_session.Redo();
+					InvalidatePreviews();
+					evt.Use();
+				}
+				return;
+			}
 
 			switch (evt.keyCode)
 			{

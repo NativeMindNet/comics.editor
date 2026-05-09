@@ -1,12 +1,12 @@
-# Status: sdd-unity-undo-redo
+# Status: sdd-comics.editor-undo-redo
 
 ## Current Phase
 
-REQUIREMENTS
+COMPLETE
 
 ## Phase Status
 
-DRAFTING
+DONE
 
 ## Last Updated
 
@@ -14,18 +14,18 @@ DRAFTING
 
 ## Blockers
 
-- Command taxonomy from `sdd-unity-animation-timeline-ui` should stabilize first.
+- None (animation-timeline-ui completed)
 
 ## Progress
 
-- [ ] Requirements drafted
-- [ ] Requirements approved
-- [ ] Specifications drafted
-- [ ] Specifications approved
-- [ ] Plan drafted
-- [ ] Plan approved
-- [ ] Implementation started
-- [ ] Implementation complete
+- [x] Requirements drafted
+- [x] Requirements approved
+- [x] Specifications drafted
+- [x] Specifications approved
+- [x] Plan drafted
+- [x] Plan approved
+- [x] Implementation started
+- [x] Implementation complete
 
 ## Context Notes
 
