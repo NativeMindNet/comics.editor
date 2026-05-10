@@ -31,4 +31,5 @@ VISUAL / SPECIFICATIONS DRAFTED
 
 - User requested Russian examples in the ASCII visual mockups.
 - The feature is intentionally modeled as a new semantic layer above existing rendering, timeline, audio, localization, and format work.
+- Balloon editor details were extracted to `flows/vdd-comics.editor-balloons-editor/`; this flow should keep only reading-level references to balloon entities.
 - The likely first implementation slice is semantic model foundation plus stage overlays.

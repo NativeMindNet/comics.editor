@@ -6,7 +6,7 @@
 
 ## Summary
 
-No implementation has started. This VDD currently captures product direction, Russian ASCII visual mockups, semantic model concepts, and an implementation plan.
+No implementation has started. This VDD currently captures product direction, Russian ASCII visual mockups, semantic model concepts, and an implementation plan. Balloon editor internals are now delegated to `flows/vdd-comics.editor-balloons-editor/`.
 
 ## Log
 
@@ -16,12 +16,13 @@ No implementation has started. This VDD currently captures product direction, Ru
 - Added Russian visual mockups for:
   - Main Workspace
   - Reading Path Mode
-  - Balloon Editor
+  - Linked Balloon Editor handoff
   - Localization Mode
   - Sound + Scroll Animation
   - Reader Preview
-- Added conceptual specifications for `SemanticScene`, panels, balloons, reading nodes, localization variants, and validation.
+- Added conceptual specifications for `SemanticScene`, panels, balloon references, reading nodes, and scene validation.
 - Added staged implementation plan.
+- Extracted Balloon Editor v2 details into `flows/vdd-comics.editor-balloons-editor/` and replaced duplicated semantic-reading details with links.
 
 ## Deviations From Plan
 
@@ -31,3 +32,4 @@ No implementation has started. This VDD currently captures product direction, Ru
 
 - This flow should be linked to implementation SDDs when the team decides which milestone to build first.
 - Most likely first SDD: semantic model foundation plus stage overlays.
+- Balloon implementation SDDs should start from `flows/vdd-comics.editor-balloons-editor/`.
